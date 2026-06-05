@@ -20,6 +20,7 @@ export type ParsedFileSummary = {
     timestamp: string;
     usage: TokenUsage;
   }>;
+  rateLimits: RateLimitSnapshot[];
   latestRateLimit: RateLimitSnapshot | null;
   parseErrors: number;
   tokenEvents: number;
@@ -108,6 +109,7 @@ export const parseRolloutFile = async (filePath: string, timezone: string): Prom
   let tokenEvents = 0;
   let latestRateLimit: RateLimitSnapshot | null = null;
   const events: ParsedFileSummary["events"] = [];
+  const rateLimits: RateLimitSnapshot[] = [];
 
   for await (const line of rl) {
     if (!line.includes("\"session_meta\"") && !line.includes("\"turn_context\"") && !line.includes("\"token_count\"")) {
@@ -141,7 +143,10 @@ export const parseRolloutFile = async (filePath: string, timezone: string): Prom
     if (record?.type !== "event_msg" || payload?.type !== "token_count") continue;
 
     const snapshot = latestSnapshot(record.timestamp, payload.rate_limits);
-    if (snapshot) latestRateLimit = snapshot;
+    if (snapshot) {
+      latestRateLimit = snapshot;
+      rateLimits.push(snapshot);
+    }
     if (!payload.info) continue;
 
     const lastUsage = rawUsageToUsage(payload.info.last_token_usage);
@@ -175,6 +180,7 @@ export const parseRolloutFile = async (filePath: string, timezone: string): Prom
     path: filePath,
     daily,
     events,
+    rateLimits,
     latestRateLimit,
     parseErrors,
     tokenEvents

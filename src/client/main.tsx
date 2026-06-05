@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { line } from "d3-shape";
 import { scaleLinear, scaleLog } from "d3-scale";
@@ -13,6 +13,25 @@ const tokenFormat = new Intl.NumberFormat("en-US", {
 const fullFormat = new Intl.NumberFormat("en-US");
 
 const formatTokens = (value: number): string => tokenFormat.format(value);
+
+const HEATMAP_EMPTY_COLOR = "#ebedf0";
+const HEATMAP_COLORS = ["#d9f0dd", "#bde5c4", "#94d79f", "#63c17d", "#32a866", "#16834b", "#075f34"];
+const HEATMAP_BUCKETS = [1 / 1000, 1 / 300, 1 / 100, 1 / 30, 1 / 10, 1 / 3, 1];
+
+const formatPercent = (value: number | null | undefined): string => {
+  if (typeof value !== "number") return "n/a";
+  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
+};
+
+const formatTime = (timestamp: string | null | undefined): string => {
+  if (!timestamp) return "No snapshot";
+  return new Date(timestamp).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+};
 
 const addDays = (date: string, days: number): string => {
   const next = new Date(`${date}T00:00:00.000Z`);
@@ -41,9 +60,10 @@ const dateDiffDays = (from: string, to: string): number => {
 };
 
 const cellColor = (value: number, max: number): string => {
-  if (value <= 0 || max <= 0) return "#ebedf0";
-  const log = scaleLog<string>().domain([1, Math.max(2, max)]).range(["#c6e6ca", "#0b6b3a"]);
-  return log(Math.max(1, value));
+  if (value <= 0 || max <= 0) return HEATMAP_EMPTY_COLOR;
+  const ratio = value / max;
+  const bucket = HEATMAP_BUCKETS.findIndex((threshold) => ratio <= threshold);
+  return HEATMAP_COLORS[bucket === -1 ? HEATMAP_COLORS.length - 1 : bucket];
 };
 
 const monthLabel = (date: string): string => {
@@ -58,6 +78,16 @@ function Stat({ label, value, detail }: { label: string; value: string; detail: 
       <strong>{value}</strong>
       <small>{detail}</small>
     </section>
+  );
+}
+
+function MiniStat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="miniStat">
+      <strong>{value}</strong>
+      <span>{label}</span>
+      <small>{detail}</small>
+    </div>
   );
 }
 
@@ -107,50 +137,59 @@ function Heatmap({
 }) {
   const cell = 14;
   const gap = 3;
-  const left = 34;
-  const top = 20;
+  const top = 0;
   const gridStart = days.length > 0 ? startOfWeek(days[0]) : "";
   const gridEnd = days.length > 0 ? days[days.length - 1] : "";
+  const rangeKey = days.length > 0 ? `${gridStart}:${gridEnd}` : "";
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const weeks = days.length > 0 ? Math.floor(dateDiffDays(gridStart, gridEnd) / 7) + 1 : 0;
-  const width = left + weeks * (cell + gap) + 12;
+  const width = weeks * (cell + gap) + 12;
   const height = top + 7 * (cell + gap) + 8;
   const max = Math.max(0, ...[...daily.values()].map((day) => day.totalTokens));
 
+  useLayoutEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+    scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+  }, [rangeKey]);
+
   return (
-    <div className="heatmapWrap">
-      <svg viewBox={`0 0 ${width} ${height}`} className="heatmap" role="img" aria-label="Daily token usage heatmap">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label, index) => (
-          <text className="weekday" key={label} x={0} y={top + index * (cell + gap) + 11}>
-            {label}
-          </text>
+    <div className="heatmapGrid">
+      <div className="weekdayLabels" aria-hidden="true">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+          <span key={label}>{label}</span>
         ))}
-        {days.map((date) => {
-          const week = Math.floor(dateDiffDays(gridStart, date) / 7);
-          const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
-          const total = daily.get(date);
-          const tokens = total?.totalTokens ?? 0;
-          const x = left + week * (cell + gap);
-          const y = top + weekday * (cell + gap);
-          return (
-            <rect
-              key={date}
-              className={selectedDate === date ? "selectedCell" : ""}
-              x={x}
-              y={y}
-              width={cell}
-              height={cell}
-              rx={2}
-              fill={cellColor(tokens, max)}
-              onClick={() => onSelect(date)}
-              tabIndex={0}
-              role="button"
-              aria-label={`${date}: ${tokens} tokens`}
-            >
-              <title>{`${date}: ${fullFormat.format(tokens)} tokens, ${total?.events ?? 0} events`}</title>
-            </rect>
-          );
-        })}
-      </svg>
+      </div>
+      <div className="heatmapWrap" ref={scrollRef}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="heatmap" role="img" aria-label="Daily token usage heatmap">
+          {days.map((date) => {
+            const week = Math.floor(dateDiffDays(gridStart, date) / 7);
+            const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+            const total = daily.get(date);
+            const tokens = total?.totalTokens ?? 0;
+            const x = week * (cell + gap);
+            const y = top + weekday * (cell + gap);
+            return (
+              <rect
+                key={date}
+                className={selectedDate === date ? "selectedCell" : ""}
+                x={x}
+                y={y}
+                width={cell}
+                height={cell}
+                rx={2}
+                fill={cellColor(tokens, max)}
+                onClick={() => onSelect(date)}
+                tabIndex={0}
+                role="button"
+                aria-label={`${date}: ${tokens} tokens`}
+              >
+                <title>{`${date}: ${fullFormat.format(tokens)} tokens, ${total?.events ?? 0} events`}</title>
+              </rect>
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
 }
@@ -165,6 +204,26 @@ function DayDetails({ day }: { day: DayResponse | null }) {
         <span>{day.date}</span>
         <strong>{formatTokens(day.totals.totalTokens)}</strong>
       </div>
+      <section className="rateSummary">
+        <h3>Selected day limit snapshot</h3>
+        <div className="rateGrid">
+          <MiniStat
+            label="5h used %"
+            value={formatPercent(day.rateLimit.latestForDay?.primary?.usedPercent)}
+            detail={formatTime(day.rateLimit.latestForDay?.timestamp)}
+          />
+          <MiniStat
+            label="Weekly used %"
+            value={formatPercent(day.rateLimit.latestForDay?.secondary?.usedPercent)}
+            detail="Latest observed that day"
+          />
+          <MiniStat
+            label="Week-to-date"
+            value={formatTokens(day.rateLimit.weekToDate.totalTokens)}
+            detail={`${day.rateLimit.weekToDate.weekStart} to ${day.rateLimit.weekToDate.through}`}
+          />
+        </div>
+      </section>
       <table>
         <thead>
           <tr>
@@ -262,7 +321,12 @@ function App() {
                 <h2>Daily token burn</h2>
                 <p>{summary.range.from} to {summary.range.to}</p>
               </div>
-              <div className="legend"><span>Less</span><i /><i /><i /><i /><i /><span>More</span></div>
+              <div className="legend">
+                <span>Less</span>
+                <i style={{ background: HEATMAP_EMPTY_COLOR }} />
+                {HEATMAP_COLORS.map((color) => <i key={color} style={{ background: color }} />)}
+                <span>More</span>
+              </div>
             </div>
             <WeeklyLine weekly={summary.weekly} />
             <div className="contentGrid">
@@ -271,13 +335,22 @@ function App() {
             </div>
           </section>
 
-          <section className="diagnostics">
-            <div><strong>{summary.diagnostics.filesScanned}</strong><span>files</span></div>
-            <div><strong>{summary.diagnostics.filesFromCache}</strong><span>cached</span></div>
-            <div><strong>{summary.diagnostics.filesParsed}</strong><span>parsed</span></div>
-            <div><strong>{summary.diagnostics.parseErrors}</strong><span>parse errors</span></div>
-            <div><strong>{summary.latestRateLimit?.primary?.usedPercent ?? "n/a"}</strong><span>5h used %</span></div>
-            <div><strong>{summary.latestRateLimit?.secondary?.usedPercent ?? "n/a"}</strong><span>weekly used %</span></div>
+          <section className="diagnosticsPanel">
+            <div className="diagnosticsHead">
+              <div>
+                <h2>Scanner health</h2>
+                <p>Local Codex log scan and cache status.</p>
+              </div>
+              <span>{summary.diagnostics.lastScanCompletedAt ? formatTime(summary.diagnostics.lastScanCompletedAt) : "Not scanned"}</span>
+            </div>
+            <div className="diagnostics">
+              <MiniStat label="Files found" value={fullFormat.format(summary.diagnostics.filesScanned)} detail="Codex rollout logs" />
+              <MiniStat label="Loaded from cache" value={fullFormat.format(summary.diagnostics.filesFromCache)} detail="Unchanged files" />
+              <MiniStat label="Parsed this scan" value={fullFormat.format(summary.diagnostics.filesParsed)} detail="Changed or new files" />
+              <MiniStat label="Skipped files" value={fullFormat.format(summary.diagnostics.skippedFiles)} detail="Unreadable files" />
+              <MiniStat label="Parse errors" value={fullFormat.format(summary.diagnostics.parseErrors)} detail="Malformed JSONL lines" />
+              <MiniStat label="Token events" value={fullFormat.format(summary.diagnostics.tokenEvents)} detail="Counted usage events" />
+            </div>
           </section>
         </>
       ) : (

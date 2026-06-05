@@ -77,6 +77,14 @@ export type DayResponse = {
   date: string;
   totals: DayTotal | null;
   sessions: SessionDayTotal[];
+  rateLimit: {
+    latestForDay: RateLimitSnapshot | null;
+    weekToDate: TokenUsage & {
+      weekStart: string;
+      through: string;
+      events: number;
+    };
+  };
 };
 
 export type ConfigResponse = {

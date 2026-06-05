@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { DayTotal, Diagnostics, RateLimitSnapshot, SessionDayTotal, SummaryResponse, TokenUsage, WeeklyTotal } from "../shared/types";
 import { addUsage, emptyUsage } from "../shared/tokenMath";
-import { addDays, startOfWeek, todayInZone } from "./dateUtils";
+import { addDays, startOfWeek, todayInZone, toLocalDate } from "./dateUtils";
 import { appConfig } from "./config";
 import { parseRolloutFile, type ParsedFileSummary } from "./parser";
 
@@ -12,7 +12,7 @@ type CacheEntry = {
 };
 
 type CacheFile = {
-  version: 1;
+  version: 2;
   entries: Record<string, CacheEntry>;
 };
 
@@ -51,9 +51,10 @@ const fileExists = async (filePath: string): Promise<boolean> => {
 const readCache = async (): Promise<CacheFile> => {
   try {
     const text = await fs.readFile(appConfig.cachePath, "utf8");
-    return JSON.parse(text) as CacheFile;
+    const cache = JSON.parse(text) as CacheFile;
+    return cache.version === 2 ? cache : { version: 2, entries: {} };
   } catch {
-    return { version: 1, entries: {} };
+    return { version: 2, entries: {} };
   }
 };
 
@@ -95,10 +96,10 @@ const cacheKeyFor = async (filePath: string): Promise<string> => {
 export const scanCodexLogs = async (force = false): Promise<Diagnostics> => {
   const diagnostics = emptyDiagnostics();
   diagnostics.lastScanStartedAt = new Date().toISOString();
-  const cache = force ? { version: 1, entries: {} } as CacheFile : await readCache();
+  const cache = force ? { version: 2, entries: {} } as CacheFile : await readCache();
   const files = await collectRolloutFiles(appConfig.codexRoots);
   diagnostics.filesScanned = files.length;
-  const nextCache: CacheFile = { version: 1, entries: {} };
+  const nextCache: CacheFile = { version: 2, entries: {} };
   const summaries: Record<string, ParsedFileSummary> = {};
 
   for (const filePath of files) {
@@ -182,6 +183,13 @@ const latestRateLimit = (): RateLimitSnapshot | null => {
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0] ?? null;
 };
 
+const latestRateLimitForDay = (date: string): RateLimitSnapshot | null => {
+  return Object.values(store.files)
+    .flatMap((summary) => summary.rateLimits ?? [])
+    .filter((snapshot) => toLocalDate(snapshot.timestamp, appConfig.timezone) === date)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0] ?? null;
+};
+
 const lastHourUsage = (): TokenUsage => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
   const total = emptyUsage();
@@ -230,8 +238,28 @@ export const getDay = async (date: string) => {
     sessions.push(...(summary.daily[date] ?? []));
   }
   sessions.sort((a, b) => b.totalTokens - a.totalTokens);
-  const totals = buildDaily().get(date) ?? null;
-  return { date, totals, sessions };
+  const daily = buildDaily();
+  const totals = daily.get(date) ?? null;
+  const weekStart = startOfWeek(date);
+  const weekToDate = [...daily.values()]
+    .filter((day) => day.date >= weekStart && day.date <= date)
+    .reduce(
+      (acc, day) => {
+        addUsage(acc, day);
+        acc.events += day.events;
+        return acc;
+      },
+      { ...emptyUsage(), weekStart, through: date, events: 0 }
+    );
+  return {
+    date,
+    totals,
+    sessions,
+    rateLimit: {
+      latestForDay: latestRateLimitForDay(date),
+      weekToDate
+    }
+  };
 };
 
 export const getConfig = async () => {

@@ -72,9 +72,40 @@ p {
   margin-bottom: 14px;
 }
 
+.harnessSection {
+  margin-top: 18px;
+}
+
+.harnessSection:first-of-type {
+  margin-top: 0;
+}
+
+.harnessHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.harnessBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  margin-bottom: 7px;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  color: #57606a;
+  background: #f6f8fa;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
 .stat,
 .panel,
 .details,
+.confidencePanel,
 .diagnosticsPanel,
 .emptyPanel,
 .error {
@@ -137,6 +168,30 @@ p {
 
 .panel {
   padding: 16px;
+}
+
+.confidencePanel {
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.confidencePanel h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.confidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.confidenceGrid .miniStat small {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
 }
 
 .panelHead {
@@ -352,6 +407,10 @@ td {
 
   .diagnostics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .confidenceGrid {
+    grid-template-columns: 1fr;
   }
 
   .rateGrid {

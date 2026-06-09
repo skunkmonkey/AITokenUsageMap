@@ -9,6 +9,7 @@ build/
 .cache/
 coverage/
 .vite/
+cross-context-window-debugger.md
 
 # Environment and secrets
 .env

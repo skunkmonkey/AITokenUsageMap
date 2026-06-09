@@ -6,6 +6,22 @@ export type TokenUsage = {
   totalTokens: number;
 };
 
+export type HarnessId = "codex" | "github-copilot";
+
+export type HarnessConfidence = {
+  captured: string;
+  total: string;
+  billing: string;
+};
+
+export type HarnessInfo = {
+  id: HarnessId;
+  name: string;
+  description: string;
+  usageLabel: string;
+  confidence: HarnessConfidence | null;
+};
+
 export type DayTotal = TokenUsage & {
   date: string;
   events: number;
@@ -57,6 +73,7 @@ export type Diagnostics = {
 };
 
 export type SummaryResponse = {
+  harness: HarnessInfo;
   range: {
     from: string;
     to: string;
@@ -74,6 +91,7 @@ export type SummaryResponse = {
 };
 
 export type DayResponse = {
+  harness: HarnessInfo;
   date: string;
   totals: DayTotal | null;
   sessions: SessionDayTotal[];
@@ -87,10 +105,20 @@ export type DayResponse = {
   };
 };
 
+export type DashboardResponse = {
+  range: {
+    from: string;
+    to: string;
+    timezone: string;
+  };
+  harnesses: SummaryResponse[];
+};
+
 export type ConfigResponse = {
   timezone: string;
   codexRoots: string[];
+  copilotRoots: string[];
   cachePath: string;
   cacheExists: boolean;
-  diagnostics: Diagnostics;
+  diagnostics: Record<HarnessId, Diagnostics>;
 };

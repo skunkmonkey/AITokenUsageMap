@@ -1,7 +1,8 @@
 import cors from "cors";
 import express from "express";
+import type { HarnessId } from "../shared/types";
 import { appConfig } from "./config";
-import { getConfig, getDay, getSummary, scanCodexLogs } from "./scanner";
+import { getConfig, getDay, getSummary, scanAllLogs } from "./scanner";
 
 const app = express();
 app.use(cors());
@@ -12,7 +13,7 @@ app.get("/", (_req, res) => {
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Codex Token Usage API</title>
+    <title>AI Token Usage API</title>
     <style>
       body { font-family: system-ui, sans-serif; margin: 32px; color: #1f2933; }
       code { background: #f0f3f6; padding: 2px 5px; border-radius: 4px; }
@@ -20,7 +21,7 @@ app.get("/", (_req, res) => {
     </style>
   </head>
   <body>
-    <h1>Codex Token Usage API</h1>
+    <h1>AI Token Usage API</h1>
     <p>This is the API server. Open the dashboard URL printed by Vite in your terminal.</p>
     <p>In the default setup that is usually <a href="http://127.0.0.1:5173/">http://127.0.0.1:5173/</a>, but Vite may move to another port if that one is busy.</p>
     <p>Useful API endpoint: <a href="/api/summary"><code>/api/summary</code></a></p>
@@ -44,9 +45,9 @@ app.get("/api/summary", async (req, res, next) => {
   }
 });
 
-app.get("/api/day/:date", async (req, res, next) => {
+app.get("/api/day/:harness/:date", async (req, res, next) => {
   try {
-    res.json(await getDay(req.params.date));
+    res.json(await getDay(req.params.harness as HarnessId, req.params.date));
   } catch (error) {
     next(error);
   }
@@ -54,7 +55,7 @@ app.get("/api/day/:date", async (req, res, next) => {
 
 app.post("/api/rescan", async (_req, res, next) => {
   try {
-    res.json(await scanCodexLogs(true));
+    res.json(await scanAllLogs(true));
   } catch (error) {
     next(error);
   }
@@ -66,5 +67,5 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
 });
 
 app.listen(appConfig.port, "127.0.0.1", () => {
-  console.log(`Codex token usage API listening on http://127.0.0.1:${appConfig.port}`);
+  console.log(`AI token usage API listening on http://127.0.0.1:${appConfig.port}`);
 });

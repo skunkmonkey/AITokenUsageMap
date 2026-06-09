@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { createRoot } from "react-dom/client";
 import { line } from "d3-shape";
 import { scaleLinear, scaleLog } from "d3-scale";
-import type { DayResponse, DayTotal, SummaryResponse, WeeklyTotal } from "../shared/types";
+import type { DashboardResponse, DayResponse, DayTotal, HarnessId, SummaryResponse, WeeklyTotal } from "../shared/types";
 import "./styles.css";
 
 const tokenFormat = new Intl.NumberFormat("en-US", {
@@ -194,9 +194,24 @@ function Heatmap({
   );
 }
 
+function ConfidencePanel({ summary }: { summary: SummaryResponse }) {
+  if (!summary.harness.confidence) return null;
+  return (
+    <section className="confidencePanel" aria-label={`${summary.harness.name} accuracy guidance`}>
+      <h3>Confidence</h3>
+      <div className="confidenceGrid">
+        <MiniStat label="Captured local requests" value="High" detail={summary.harness.confidence.captured} />
+        <MiniStat label="Total personal usage" value="Medium" detail={summary.harness.confidence.total} />
+        <MiniStat label="Billing reconciliation" value="Low" detail={summary.harness.confidence.billing} />
+      </div>
+    </section>
+  );
+}
+
 function DayDetails({ day }: { day: DayResponse | null }) {
   if (!day) return <aside className="details emptyPanel">No day selected.</aside>;
-  if (!day.totals) return <aside className="details emptyPanel">No Codex token events for {day.date}.</aside>;
+  if (!day.totals) return <aside className="details emptyPanel">No {day.harness.name} token events for {day.date}.</aside>;
+  const hasRateLimit = Boolean(day.rateLimit.latestForDay || day.harness.id === "codex");
 
   return (
     <aside className="details">
@@ -204,26 +219,28 @@ function DayDetails({ day }: { day: DayResponse | null }) {
         <span>{day.date}</span>
         <strong>{formatTokens(day.totals.totalTokens)}</strong>
       </div>
-      <section className="rateSummary">
-        <h3>Selected day limit snapshot</h3>
-        <div className="rateGrid">
-          <MiniStat
-            label="5h used %"
-            value={formatPercent(day.rateLimit.latestForDay?.primary?.usedPercent)}
-            detail={formatTime(day.rateLimit.latestForDay?.timestamp)}
-          />
-          <MiniStat
-            label="Weekly used %"
-            value={formatPercent(day.rateLimit.latestForDay?.secondary?.usedPercent)}
-            detail="Latest observed that day"
-          />
-          <MiniStat
-            label="Week-to-date"
-            value={formatTokens(day.rateLimit.weekToDate.totalTokens)}
-            detail={`${day.rateLimit.weekToDate.weekStart} to ${day.rateLimit.weekToDate.through}`}
-          />
-        </div>
-      </section>
+      {hasRateLimit && (
+        <section className="rateSummary">
+          <h3>Selected day limit snapshot</h3>
+          <div className="rateGrid">
+            <MiniStat
+              label="5h used %"
+              value={formatPercent(day.rateLimit.latestForDay?.primary?.usedPercent)}
+              detail={formatTime(day.rateLimit.latestForDay?.timestamp)}
+            />
+            <MiniStat
+              label="Weekly used %"
+              value={formatPercent(day.rateLimit.latestForDay?.secondary?.usedPercent)}
+              detail="Latest observed that day"
+            />
+            <MiniStat
+              label="Week-to-date"
+              value={formatTokens(day.rateLimit.weekToDate.totalTokens)}
+              detail={`${day.rateLimit.weekToDate.weekStart} to ${day.rateLimit.weekToDate.through}`}
+            />
+          </div>
+        </section>
+      )}
       <table>
         <thead>
           <tr>
@@ -248,10 +265,85 @@ function DayDetails({ day }: { day: DayResponse | null }) {
   );
 }
 
+function HarnessDashboard({
+  summary,
+  selectedDate,
+  day,
+  onSelectDate
+}: {
+  summary: SummaryResponse;
+  selectedDate: string | null;
+  day: DayResponse | null;
+  onSelectDate: (harness: HarnessId, date: string) => void;
+}) {
+  const dailyMap = useMemo(() => new Map(summary.daily.map((item) => [item.date, item])), [summary]);
+  const days = useMemo(() => rangeDays(summary.range.from, summary.range.to), [summary]);
+
+  return (
+    <section className="harnessSection">
+      <div className="harnessHead">
+        <div>
+          <span className="harnessBadge">{summary.harness.usageLabel}</span>
+          <h2>{summary.harness.name}</h2>
+          <p>{summary.harness.description}</p>
+        </div>
+      </div>
+
+      <section className="stats">
+        <Stat label="Today" value={formatTokens(summary.today?.totalTokens ?? 0)} detail={summary.today ? `${summary.today.events} events` : "No events yet"} />
+        <Stat label="Last hour" value={formatTokens(summary.lastHour.totalTokens)} detail="Recent local events" />
+        <Stat label="Last 7 days" value={formatTokens(summary.lastSevenDays.totalTokens)} detail="Rolling total" />
+        <Stat label="Peak day" value={summary.peakDay ? formatTokens(summary.peakDay.totalTokens) : "0"} detail={summary.peakDay?.date ?? "No peak"} />
+        <Stat label="Visible total" value={formatTokens(summary.totals.totalTokens)} detail={`${summary.range.from} to ${summary.range.to}`} />
+      </section>
+
+      <ConfidencePanel summary={summary} />
+
+      <section className="panel">
+        <div className="panelHead">
+          <div>
+            <h2>Daily token burn</h2>
+            <p>{summary.range.from} to {summary.range.to}</p>
+          </div>
+          <div className="legend">
+            <span>Less</span>
+            <i style={{ background: HEATMAP_EMPTY_COLOR }} />
+            {HEATMAP_COLORS.map((color) => <i key={color} style={{ background: color }} />)}
+            <span>More</span>
+          </div>
+        </div>
+        <WeeklyLine weekly={summary.weekly} />
+        <div className="contentGrid">
+          <Heatmap days={days} daily={dailyMap} selectedDate={selectedDate} onSelect={(date) => onSelectDate(summary.harness.id, date)} />
+          <DayDetails day={day} />
+        </div>
+      </section>
+
+      <section className="diagnosticsPanel">
+        <div className="diagnosticsHead">
+          <div>
+            <h2>Scanner health</h2>
+            <p>Local {summary.harness.name} log scan and cache status.</p>
+          </div>
+          <span>{summary.diagnostics.lastScanCompletedAt ? formatTime(summary.diagnostics.lastScanCompletedAt) : "Not scanned"}</span>
+        </div>
+        <div className="diagnostics">
+          <MiniStat label="Files found" value={fullFormat.format(summary.diagnostics.filesScanned)} detail="Candidate logs" />
+          <MiniStat label="Loaded from cache" value={fullFormat.format(summary.diagnostics.filesFromCache)} detail="Unchanged files" />
+          <MiniStat label="Parsed this scan" value={fullFormat.format(summary.diagnostics.filesParsed)} detail="Changed or new files" />
+          <MiniStat label="Skipped files" value={fullFormat.format(summary.diagnostics.skippedFiles)} detail="Unreadable files" />
+          <MiniStat label="Parse errors" value={fullFormat.format(summary.diagnostics.parseErrors)} detail="Malformed JSONL lines" />
+          <MiniStat label="Token events" value={fullFormat.format(summary.diagnostics.tokenEvents)} detail="Counted usage events" />
+        </div>
+      </section>
+    </section>
+  );
+}
+
 function App() {
-  const [summary, setSummary] = useState<SummaryResponse | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [day, setDay] = useState<DayResponse | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [selectedDates, setSelectedDates] = useState<Partial<Record<HarnessId, string>>>({});
+  const [daysByHarness, setDaysByHarness] = useState<Partial<Record<HarnessId, DayResponse>>>({});
   const [loading, setLoading] = useState(true);
   const [rescanning, setRescanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,9 +352,12 @@ function App() {
     setError(null);
     const response = await fetch("/api/summary");
     if (!response.ok) throw new Error(await response.text());
-    const data = await response.json() as SummaryResponse;
-    setSummary(data);
-    setSelectedDate(data.today?.date ?? data.peakDay?.date ?? null);
+    const data = await response.json() as DashboardResponse;
+    setDashboard(data);
+    setSelectedDates(Object.fromEntries(data.harnesses.map((summary) => [
+      summary.harness.id,
+      summary.today?.date ?? summary.peakDay?.date ?? data.range.to
+    ])) as Partial<Record<HarnessId, string>>);
     setLoading(false);
   };
 
@@ -274,15 +369,22 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!selectedDate) return;
-    fetch(`/api/day/${selectedDate}`)
-      .then((response) => response.json())
-      .then((data: DayResponse) => setDay(data))
-      .catch(() => setDay(null));
-  }, [selectedDate]);
+    for (const [harness, selectedDate] of Object.entries(selectedDates) as Array<[HarnessId, string]>) {
+      if (!selectedDate) continue;
+      fetch(`/api/day/${harness}/${selectedDate}`)
+        .then((response) => response.json())
+        .then((data: DayResponse) => setDaysByHarness((current) => ({ ...current, [harness]: data })))
+        .catch(() => setDaysByHarness((current) => {
+          const next = { ...current };
+          delete next[harness];
+          return next;
+        }));
+    }
+  }, [selectedDates]);
 
-  const dailyMap = useMemo(() => new Map(summary?.daily.map((item) => [item.date, item]) ?? []), [summary]);
-  const days = useMemo(() => summary ? rangeDays(summary.range.from, summary.range.to) : [], [summary]);
+  const selectDate = (harness: HarnessId, date: string) => {
+    setSelectedDates((current) => ({ ...current, [harness]: date }));
+  };
 
   const rescan = async () => {
     setRescanning(true);
@@ -291,70 +393,34 @@ function App() {
     setRescanning(false);
   };
 
-  if (loading) return <main className="shell"><div className="emptyPanel">Scanning local Codex logs...</div></main>;
+  if (loading) return <main className="shell"><div className="emptyPanel">Scanning local AI usage logs...</div></main>;
 
   return (
     <main className="shell">
       <header className="topbar">
         <div>
-          <h1>Codex Token Usage</h1>
-          <p>Local daily token burn from Codex session logs.</p>
+          <h1>AI Token Usage</h1>
+          <p>Local token usage from detected AI coding harness logs.</p>
         </div>
         <button onClick={rescan} disabled={rescanning}>{rescanning ? "Rescanning" : "Rescan"}</button>
       </header>
 
       {error && <div className="error">{error}</div>}
 
-      {summary ? (
+      {dashboard && dashboard.harnesses.length > 0 ? (
         <>
-          <section className="stats">
-            <Stat label="Today" value={formatTokens(summary.today?.totalTokens ?? 0)} detail={summary.today ? `${summary.today.events} events` : "No events yet"} />
-            <Stat label="Last hour" value={formatTokens(summary.lastHour.totalTokens)} detail="Recent local events" />
-            <Stat label="Last 7 days" value={formatTokens(summary.lastSevenDays.totalTokens)} detail="Rolling total" />
-            <Stat label="Peak day" value={summary.peakDay ? formatTokens(summary.peakDay.totalTokens) : "0"} detail={summary.peakDay?.date ?? "No peak"} />
-            <Stat label="Visible total" value={formatTokens(summary.totals.totalTokens)} detail={`${summary.range.from} to ${summary.range.to}`} />
-          </section>
-
-          <section className="panel">
-            <div className="panelHead">
-              <div>
-                <h2>Daily token burn</h2>
-                <p>{summary.range.from} to {summary.range.to}</p>
-              </div>
-              <div className="legend">
-                <span>Less</span>
-                <i style={{ background: HEATMAP_EMPTY_COLOR }} />
-                {HEATMAP_COLORS.map((color) => <i key={color} style={{ background: color }} />)}
-                <span>More</span>
-              </div>
-            </div>
-            <WeeklyLine weekly={summary.weekly} />
-            <div className="contentGrid">
-              <Heatmap days={days} daily={dailyMap} selectedDate={selectedDate} onSelect={setSelectedDate} />
-              <DayDetails day={day} />
-            </div>
-          </section>
-
-          <section className="diagnosticsPanel">
-            <div className="diagnosticsHead">
-              <div>
-                <h2>Scanner health</h2>
-                <p>Local Codex log scan and cache status.</p>
-              </div>
-              <span>{summary.diagnostics.lastScanCompletedAt ? formatTime(summary.diagnostics.lastScanCompletedAt) : "Not scanned"}</span>
-            </div>
-            <div className="diagnostics">
-              <MiniStat label="Files found" value={fullFormat.format(summary.diagnostics.filesScanned)} detail="Codex rollout logs" />
-              <MiniStat label="Loaded from cache" value={fullFormat.format(summary.diagnostics.filesFromCache)} detail="Unchanged files" />
-              <MiniStat label="Parsed this scan" value={fullFormat.format(summary.diagnostics.filesParsed)} detail="Changed or new files" />
-              <MiniStat label="Skipped files" value={fullFormat.format(summary.diagnostics.skippedFiles)} detail="Unreadable files" />
-              <MiniStat label="Parse errors" value={fullFormat.format(summary.diagnostics.parseErrors)} detail="Malformed JSONL lines" />
-              <MiniStat label="Token events" value={fullFormat.format(summary.diagnostics.tokenEvents)} detail="Counted usage events" />
-            </div>
-          </section>
+          {dashboard.harnesses.map((summary) => (
+            <HarnessDashboard
+              key={summary.harness.id}
+              summary={summary}
+              selectedDate={selectedDates[summary.harness.id] ?? null}
+              day={daysByHarness[summary.harness.id] ?? null}
+              onSelectDate={selectDate}
+            />
+          ))}
         </>
       ) : (
-        <div className="emptyPanel">No summary data available.</div>
+        <div className="emptyPanel">No Codex or GitHub Copilot token logs were found on this machine.</div>
       )}
     </main>
   );

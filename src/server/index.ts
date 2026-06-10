@@ -22,8 +22,8 @@ app.get("/", (_req, res) => {
   </head>
   <body>
     <h1>AI Token Usage API</h1>
-    <p>This is the API server. Open the dashboard URL printed by Vite in your terminal.</p>
-    <p>In the default setup that is usually <a href="http://127.0.0.1:5173/">http://127.0.0.1:5173/</a>, but Vite may move to another port if that one is busy.</p>
+    <p>This is the API server for the dashboard. It is not the page you normally open in your browser.</p>
+    <p>Open the dashboard URL printed by the <code>[WEB]</code> Vite process in your terminal. In the default setup that is usually <a href="http://127.0.0.1:5173/">http://127.0.0.1:5173/</a>, but Vite may move to another port if that one is busy.</p>
     <p>Useful API endpoint: <a href="/api/summary"><code>/api/summary</code></a></p>
   </body>
 </html>`);
@@ -67,5 +67,5 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
 });
 
 app.listen(appConfig.port, "127.0.0.1", () => {
-  console.log(`AI token usage API listening on http://127.0.0.1:${appConfig.port}`);
+  console.log(`AI token usage API ready at http://127.0.0.1:${appConfig.port} (backend only; open the [WEB] Vite dashboard URL, usually http://127.0.0.1:5173/)`);
 });

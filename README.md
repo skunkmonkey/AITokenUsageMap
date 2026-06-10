@@ -16,15 +16,20 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`.
+Open the dashboard URL printed by the `[WEB]` Vite process. By default that is `http://127.0.0.1:5173`, but Vite may choose another port if `5173` is already in use.
 
-The API runs on `http://127.0.0.1:5174` and reads:
+The API runs separately on `http://127.0.0.1:5174`. That URL is for backend endpoints and health checks; it is not the dashboard.
 
-- `%USERPROFILE%\.codex\sessions`
-- `%USERPROFILE%\.codex\archived_sessions`
-- `%APPDATA%\Code\User\workspaceStorage`
-- `%APPDATA%\Code - Insiders\User\workspaceStorage`
-- `%APPDATA%\VSCodium\User\workspaceStorage`
+By default, the scanner reads Codex logs from:
+
+- Windows: `%USERPROFILE%\.codex\sessions` and `%USERPROFILE%\.codex\archived_sessions`
+- macOS/Linux: `~/.codex/sessions` and `~/.codex/archived_sessions`
+
+It reads VS Code Copilot Chat debug logs from:
+
+- Windows: `%APPDATA%\Code\User\workspaceStorage`, `%APPDATA%\Code - Insiders\User\workspaceStorage`, and `%APPDATA%\VSCodium\User\workspaceStorage`
+- macOS: `~/Library/Application Support/Code/User/workspaceStorage`, `~/Library/Application Support/Code - Insiders/User/workspaceStorage`, and `~/Library/Application Support/VSCodium/User/workspaceStorage`
+- Linux: `~/.config/Code/User/workspaceStorage`, `~/.config/Code - Insiders/User/workspaceStorage`, and `~/.config/VSCodium/User/workspaceStorage`
 
 ## Configuration
 
@@ -58,7 +63,7 @@ Accuracy guidance:
 
 - High for captured local VS Code Copilot Chat and agent requests when debug logs include token fields.
 - Medium for a developer's total personal Copilot usage because completions, GitHub.com, CLI, other IDEs, remote environments, disabled logging, and log rotation can be missed.
-- Low for Verisk billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments.
+- Low for billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments.
 
 ## Notes
 

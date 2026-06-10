@@ -64,7 +64,7 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
       confidence: {
         captured: "High for captured local VS Code Copilot Chat and agent requests when debug logs include token fields.",
         total: "Medium for total personal Copilot usage because completions, GitHub.com, CLI, other IDEs, remote environments, disabled logging, and log rotation can be missed.",
-        billing: "Low for Verisk billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments."
+        billing: "Low for billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments."
       }
     },
     roots: appConfig.copilotRoots,

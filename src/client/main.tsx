@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { line } from "d3-shape";
 import { scaleLinear, scaleLog } from "d3-scale";
 import type { DashboardResponse, DayResponse, DayTotal, HarnessId, SummaryResponse, WeeklyTotal } from "../shared/types";
+import { addUsage, emptyUsage } from "../shared/tokenMath";
 import "./styles.css";
 
 const tokenFormat = new Intl.NumberFormat("en-US", {
@@ -69,6 +70,27 @@ const cellColor = (value: number, max: number): string => {
 const monthLabel = (date: string): string => {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return parsed.toLocaleDateString("en-US", { month: "short" });
+};
+
+const startOfMonth = (date: string): string => `${date.slice(0, 7)}-01`;
+
+const endOfMonth = (date: string): string => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  parsed.setUTCMonth(parsed.getUTCMonth() + 1, 0);
+  return parsed.toISOString().slice(0, 10);
+};
+
+const selectedMonthStats = (summary: SummaryResponse, selectedDate: string | null) => {
+  const activeDate = selectedDate ?? summary.today?.date ?? summary.peakDay?.date ?? summary.range.to;
+  const monthStart = startOfMonth(activeDate);
+  const monthEnd = endOfMonth(activeDate);
+  const from = monthStart > summary.range.from ? monthStart : summary.range.from;
+  const to = monthEnd < summary.range.to ? monthEnd : summary.range.to;
+  const days = summary.daily.filter((day) => day.date >= monthStart && day.date <= monthEnd);
+  const totals = days.reduce((acc, day) => addUsage(acc, day), emptyUsage());
+  const peakDay = days.reduce<DayTotal | null>((peak, day) => (!peak || day.totalTokens > peak.totalTokens ? day : peak), null);
+
+  return { totals, peakDay, from, to };
 };
 
 function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
@@ -278,6 +300,7 @@ function HarnessDashboard({
 }) {
   const dailyMap = useMemo(() => new Map(summary.daily.map((item) => [item.date, item])), [summary]);
   const days = useMemo(() => rangeDays(summary.range.from, summary.range.to), [summary]);
+  const monthlyStats = useMemo(() => selectedMonthStats(summary, selectedDate), [summary, selectedDate]);
 
   return (
     <section className="harnessSection">
@@ -293,8 +316,8 @@ function HarnessDashboard({
         <Stat label="Today" value={formatTokens(summary.today?.totalTokens ?? 0)} detail={summary.today ? `${summary.today.events} events` : "No events yet"} />
         <Stat label="Last hour" value={formatTokens(summary.lastHour.totalTokens)} detail="Recent local events" />
         <Stat label="Last 7 days" value={formatTokens(summary.lastSevenDays.totalTokens)} detail="Rolling total" />
-        <Stat label="Peak day" value={summary.peakDay ? formatTokens(summary.peakDay.totalTokens) : "0"} detail={summary.peakDay?.date ?? "No peak"} />
-        <Stat label="Visible total" value={formatTokens(summary.totals.totalTokens)} detail={`${summary.range.from} to ${summary.range.to}`} />
+        <Stat label="Monthly peak day" value={monthlyStats.peakDay ? formatTokens(monthlyStats.peakDay.totalTokens) : "0"} detail={monthlyStats.peakDay?.date ?? "No peak this month"} />
+        <Stat label="Monthly total" value={formatTokens(monthlyStats.totals.totalTokens)} detail={`${monthlyStats.from} to ${monthlyStats.to}`} />
       </section>
 
       <ConfidencePanel summary={summary} />

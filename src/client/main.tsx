@@ -443,7 +443,7 @@ function App() {
           ))}
         </>
       ) : (
-        <div className="emptyPanel">No Codex or GitHub Copilot token logs were found on this machine.</div>
+        <div className="emptyPanel">No Codex, GitHub Copilot, or Claude Code token logs were found on this machine.</div>
       )}
     </main>
   );

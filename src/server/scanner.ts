@@ -7,6 +7,7 @@ import { addDays, startOfWeek, todayInZone, toLocalDate } from "./dateUtils";
 import { appConfig } from "./config";
 import { parseRolloutFile, type ParsedFileSummary } from "./parser";
 import { parseCopilotDebugFile } from "./copilotParser";
+import { parseClaudeUsageFile } from "./claudeParser";
 
 type CacheEntry = {
   key: string;
@@ -73,6 +74,25 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
       && fullPath.includes(`${path.sep}GitHub.copilot-chat${path.sep}debug-logs${path.sep}`)
     )),
     parseFile: parseCopilotDebugFile
+  },
+  "claude-code": {
+    info: {
+      id: "claude-code",
+      name: "Claude Code",
+      description: "Estimated local token usage from Claude Code /usage aggregates and session transcripts.",
+      usageLabel: "Estimated local tokens",
+      confidence: {
+        captured: "Medium-high for local Claude Code /usage aggregates in stats-cache.json when present; lower for transcript-derived session detail because JSONL token fields can be version-sensitive.",
+        total: "Medium for total personal Claude Code usage because other machines, cloud sessions, disabled persistence, transcript cleanup, and alternate config directories can be missed.",
+        billing: "Low for billing reconciliation because Claude Code local cost and token figures are estimates and provider billing uses server-side accounting."
+      }
+    },
+    roots: appConfig.claudeRoots,
+    collectFiles: async (roots) => collectMatchingFiles(roots, (entry, fullPath) => (
+      entry.name === "stats-cache.json"
+      || (entry.name.endsWith(".jsonl") && fullPath.includes(`${path.sep}projects${path.sep}`))
+    )),
+    parseFile: parseClaudeUsageFile
   }
 };
 
@@ -83,6 +103,11 @@ const stores: Record<HarnessId, HarnessStore> = {
     scannedAt: null
   },
   "github-copilot": {
+    files: {},
+    diagnostics: emptyDiagnostics(),
+    scannedAt: null
+  },
+  "claude-code": {
     files: {},
     diagnostics: emptyDiagnostics(),
     scannedAt: null
@@ -205,24 +230,49 @@ export const ensureScanned = async (): Promise<void> => {
 
 const buildDaily = (store: HarnessStore): Map<string, DayTotal> => {
   const daily = new Map<string, DayTotal>();
+  const priorities = dailyPrioritiesFor(store);
   for (const summary of Object.values(store.files)) {
     for (const [date, sessions] of Object.entries(summary.daily)) {
+      if (!usesDailySummary(summary, date, priorities)) continue;
       let total = daily.get(date);
       if (!total) {
         total = { ...emptyUsage(), date, events: 0, sessions: 0 };
         daily.set(date, total);
       }
       const sessionIds = new Set<string>();
+      let sessionEvents = 0;
       for (const session of sessions) {
         addUsage(total, session);
-        total.events += session.events;
+        sessionEvents += session.events;
         sessionIds.add(session.sessionId);
       }
-      total.sessions += sessionIds.size;
+      total.events += summary.dailyEventCounts?.[date] ?? sessionEvents;
+      total.sessions += summary.dailySessionCounts?.[date] ?? sessionIds.size;
     }
   }
   return daily;
 };
+
+const dailyPriority = (summary: ParsedFileSummary): number => summary.dailyPriority ?? 0;
+
+const dailyCoverageKey = (summary: ParsedFileSummary): string => summary.dailyCoverageKey ?? summary.path;
+
+const dailyPriorityKey = (summary: ParsedFileSummary, date: string): string => `${dailyCoverageKey(summary)}|${date}`;
+
+const dailyPrioritiesFor = (store: HarnessStore): Map<string, number> => {
+  const priorities = new Map<string, number>();
+  for (const summary of Object.values(store.files)) {
+    for (const date of Object.keys(summary.daily)) {
+      const key = dailyPriorityKey(summary, date);
+      priorities.set(key, Math.max(priorities.get(key) ?? Number.NEGATIVE_INFINITY, dailyPriority(summary)));
+    }
+  }
+  return priorities;
+};
+
+const usesDailySummary = (summary: ParsedFileSummary, date: string, priorities: Map<string, number>): boolean => (
+  dailyPriority(summary) >= (priorities.get(dailyPriorityKey(summary, date)) ?? dailyPriority(summary))
+);
 
 const buildWeekly = (days: DayTotal[]): WeeklyTotal[] => {
   const weekly = new Map<string, WeeklyTotal>();
@@ -318,7 +368,9 @@ export const getDay = async (harnessId: HarnessId, date: string) => {
   const harness = harnesses[harnessId];
   const store = stores[harnessId];
   const sessions: SessionDayTotal[] = [];
+  const priorities = dailyPrioritiesFor(store);
   for (const summary of Object.values(store.files)) {
+    if (!usesDailySummary(summary, date, priorities)) continue;
     sessions.push(...(summary.daily[date] ?? []));
   }
   sessions.sort((a, b) => b.totalTokens - a.totalTokens);
@@ -353,11 +405,13 @@ export const getConfig = async () => {
     timezone: appConfig.timezone,
     codexRoots: appConfig.codexRoots,
     copilotRoots: appConfig.copilotRoots,
+    claudeRoots: appConfig.claudeRoots,
     cachePath: appConfig.cachePath,
     cacheExists: await fileExists(appConfig.cachePath),
     diagnostics: {
       codex: stores.codex.diagnostics,
-      "github-copilot": stores["github-copilot"].diagnostics
+      "github-copilot": stores["github-copilot"].diagnostics,
+      "claude-code": stores["claude-code"].diagnostics
     }
   };
 };

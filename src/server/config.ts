@@ -31,7 +31,16 @@ export const defaultCopilotRootsFor = (
   return configRoot ? productDirs.map((productDir) => path.join(configRoot, productDir, "User", "workspaceStorage")) : [];
 };
 
+export const defaultClaudeRootsFor = (
+  env: NodeJS.ProcessEnv = process.env,
+  home = userHome
+): string[] => {
+  const claudeHome = env.CLAUDE_CONFIG_DIR || (home ? path.join(home, ".claude") : "");
+  return claudeHome ? [claudeHome] : [];
+};
+
 const copilotRootsOverride = pathList(process.env.COPILOT_USAGE_ROOTS);
+const claudeRootsOverride = pathList(process.env.CLAUDE_USAGE_ROOTS);
 
 export const appConfig = {
   port: Number(process.env.CODEX_USAGE_PORT || 5174),
@@ -41,5 +50,6 @@ export const appConfig = {
     path.join(codexHome, "archived_sessions")
   ],
   copilotRoots: copilotRootsOverride.length > 0 ? copilotRootsOverride : defaultCopilotRootsFor(),
+  claudeRoots: claudeRootsOverride.length > 0 ? claudeRootsOverride : defaultClaudeRootsFor(),
   cachePath: path.join(repoRoot, ".cache", "ai-token-usage", "index.json")
 };

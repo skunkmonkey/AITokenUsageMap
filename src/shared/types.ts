@@ -6,7 +6,7 @@ export type TokenUsage = {
   totalTokens: number;
 };
 
-export type HarnessId = "codex" | "github-copilot";
+export type HarnessId = "codex" | "github-copilot" | "claude-code";
 
 export type HarnessConfidence = {
   captured: string;
@@ -118,6 +118,7 @@ export type ConfigResponse = {
   timezone: string;
   codexRoots: string[];
   copilotRoots: string[];
+  claudeRoots: string[];
   cachePath: string;
   cacheExists: boolean;
   diagnostics: Record<HarnessId, Diagnostics>;

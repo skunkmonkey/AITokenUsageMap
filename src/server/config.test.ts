@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultCopilotRootsFor } from "./config";
+import { defaultClaudeRootsFor, defaultCopilotRootsFor } from "./config";
 
 const rootsFor = (platform: NodeJS.Platform, env: NodeJS.ProcessEnv, home: string) => (
   defaultCopilotRootsFor(platform, env, home)
@@ -36,6 +36,20 @@ describe("defaultCopilotRootsFor", () => {
       path.join("home", "dev", ".config", "Code", "User", "workspaceStorage"),
       path.join("home", "dev", ".config", "Code - Insiders", "User", "workspaceStorage"),
       path.join("home", "dev", ".config", "VSCodium", "User", "workspaceStorage")
+    ]);
+  });
+});
+
+describe("defaultClaudeRootsFor", () => {
+  it("uses CLAUDE_CONFIG_DIR when present", () => {
+    expect(defaultClaudeRootsFor({ CLAUDE_CONFIG_DIR: path.join("D:", "ClaudeData") }, path.join("C:", "Users", "dev"))).toEqual([
+      path.join("D:", "ClaudeData")
+    ]);
+  });
+
+  it("falls back to ~/.claude", () => {
+    expect(defaultClaudeRootsFor({}, path.join("home", "dev"))).toEqual([
+      path.join("home", "dev", ".claude")
     ]);
   });
 });

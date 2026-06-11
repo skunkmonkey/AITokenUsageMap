@@ -16,6 +16,10 @@ type RawUsage = {
 export type ParsedFileSummary = {
   path: string;
   daily: Record<string, SessionDayTotal[]>;
+  dailyEventCounts?: Record<string, number>;
+  dailySessionCounts?: Record<string, number>;
+  dailyPriority?: number;
+  dailyCoverageKey?: string;
   events: Array<{
     timestamp: string;
     usage: TokenUsage;

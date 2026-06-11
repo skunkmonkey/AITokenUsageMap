@@ -6,8 +6,9 @@ Supported sources:
 
 - Codex session JSONL logs.
 - GitHub Copilot Chat/agent debug JSONL logs from VS Code.
+- Claude Code local `/usage` aggregates and session transcript JSONL logs.
 
-The dashboard only shows sources that are present on the current machine. Developers who only use Codex see Codex. Developers who only have Copilot logs see GitHub Copilot. Developers with both see both displays.
+The dashboard only shows sources that are present on the current machine. Developers who use one supported tool see one display. Developers with multiple supported tools installed see each detected source at the same time.
 
 ## Run
 
@@ -31,12 +32,20 @@ It reads VS Code Copilot Chat debug logs from:
 - macOS: `~/Library/Application Support/Code/User/workspaceStorage`, `~/Library/Application Support/Code - Insiders/User/workspaceStorage`, and `~/Library/Application Support/VSCodium/User/workspaceStorage`
 - Linux: `~/.config/Code/User/workspaceStorage`, `~/.config/Code - Insiders/User/workspaceStorage`, and `~/.config/VSCodium/User/workspaceStorage`
 
+It reads Claude Code usage from:
+
+- Windows: `%USERPROFILE%\.claude`
+- macOS/Linux: `~/.claude`
+- Any platform: `CLAUDE_CONFIG_DIR` when set
+
 ## Configuration
 
 - `CODEX_HOME`: override the Codex home directory.
 - `CODEX_USAGE_TZ`: override the timezone. Defaults to `America/Denver`.
 - `CODEX_USAGE_PORT`: override the API port. Defaults to `5174`.
 - `COPILOT_USAGE_ROOTS`: override GitHub Copilot workspace storage roots. Use the platform path delimiter (`;` on Windows, `:` on macOS/Linux) for multiple roots.
+- `CLAUDE_CONFIG_DIR`: override Claude Code's config/data directory. This matches Claude Code's own environment variable.
+- `CLAUDE_USAGE_ROOTS`: override Claude Code usage roots. Use the platform path delimiter (`;` on Windows, `:` on macOS/Linux) for multiple roots.
 
 ## GitHub Copilot tracking
 
@@ -65,8 +74,22 @@ Accuracy guidance:
 - Medium for a developer's total personal Copilot usage because completions, GitHub.com, CLI, other IDEs, remote environments, disabled logging, and log rotation can be missed.
 - Low for billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments.
 
+## Claude Code tracking
+
+Claude Code tracking is local and estimated. The scanner prefers `stats-cache.json`, the local aggregate cache used by Claude Code's `/usage` display, for daily totals. It also scans `projects/**/*.jsonl` transcript files for recent and session-level detail. When both sources cover the same Claude config root and date, aggregate `/usage` totals win so the dashboard does not double-count.
+
+Claude transcript files are plaintext and may include prompts, file contents, command output, and secrets printed by tools. This dashboard only extracts timestamps, session IDs, model names, and token counts, but users should still treat the source directory as sensitive.
+
+Accuracy guidance:
+
+- Medium-high for local Claude Code `/usage` aggregates in `stats-cache.json` when present.
+- Medium for a developer's total personal Claude Code usage because other machines, cloud sessions, disabled persistence, transcript cleanup, and alternate config directories can be missed.
+- Low for billing reconciliation because local token and cost figures are estimates and provider billing uses server-side accounting.
+
 ## Notes
 
 The Codex scanner streams rollout files and only parses session metadata, model context, and `token_count` events. Usage is counted from `last_token_usage` when present, with cumulative delta fallback for older records.
 
 The GitHub Copilot scanner streams Copilot debug JSONL files and counts `llm_request` events with numeric token fields. These logs are unofficial/debug data, so field names and availability may change.
+
+The Claude Code scanner reads `stats-cache.json` for aggregate daily totals and streams Claude transcript JSONL files for assistant messages with `message.usage` token fields. Transcript token fields are version-sensitive, so aggregate totals are preferred whenever both sources are available.

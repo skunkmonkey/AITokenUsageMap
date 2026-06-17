@@ -8,6 +8,35 @@ export type TokenUsage = {
 
 export type HarnessId = "codex" | "github-copilot" | "claude-code";
 
+export type ModelPricingSource = "catalog" | "manual" | "missing";
+
+export type ModelPricingProvider = "openai" | "anthropic" | "unknown";
+
+export type ModelPricing = {
+  model: string;
+  normalizedModel: string;
+  provider: ModelPricingProvider;
+  source: ModelPricingSource;
+  inputUsdPerMillion: number | null;
+  cachedInputUsdPerMillion: number | null;
+  outputUsdPerMillion: number | null;
+  sourceUrl: string | null;
+  notes: string[];
+  updatedAt: string | null;
+  cachedAt: string;
+};
+
+export type PricingResponse = {
+  rates: ModelPricing[];
+};
+
+export type ModelPricingUpdate = {
+  model: string;
+  inputUsdPerMillion: number;
+  cachedInputUsdPerMillion: number | null;
+  outputUsdPerMillion: number;
+};
+
 export type HarnessConfidence = {
   captured: string;
   total: string;
@@ -103,6 +132,23 @@ export type DayResponse = {
       events: number;
     };
   };
+};
+
+export type ModelUsageRangeRow = TokenUsage & {
+  harness: HarnessInfo;
+  date: string;
+  model: string;
+  events: number;
+  sessions: number;
+};
+
+export type ModelUsageRangeResponse = {
+  range: {
+    from: string;
+    to: string;
+    timezone: string;
+  };
+  rows: ModelUsageRangeRow[];
 };
 
 export type DashboardResponse = {

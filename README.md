@@ -10,6 +10,14 @@ Supported sources:
 
 The dashboard only shows sources that are present on the current machine. Developers who use one supported tool see one display. Developers with multiple supported tools installed see each detected source at the same time.
 
+## Cost analysis
+
+The dashboard includes a cost analysis panel at the bottom of the page. Enter a start and end date, or use the calendar buttons to pick them, and the dashboard aggregates model usage across that date range. It estimates cost from input, cached input, and output token rates, and shows the total per model.
+
+For recognizable OpenAI and Anthropic model names, the API server fills rates from a built-in session catalog based on official provider pricing pages. Unknown models can be filled in directly in the dashboard with input, cached input, and output prices in USD per 1M tokens. Manual rates are remembered in memory for the running API server session and are cleared when the server restarts.
+
+Cost values are local estimates. Subscription plans, GitHub Copilot AI Credits, regional routing, batch discounts, cache-write premiums, and provider-side billing adjustments can differ from the displayed API-style token estimate.
+
 ## Run
 
 ```bash

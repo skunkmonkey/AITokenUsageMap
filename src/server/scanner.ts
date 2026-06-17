@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Dirent } from "node:fs";
-import type { DashboardResponse, DayTotal, Diagnostics, HarnessId, HarnessInfo, RateLimitSnapshot, SessionDayTotal, SummaryResponse, TokenUsage, WeeklyTotal } from "../shared/types";
+import type { DashboardResponse, DayTotal, Diagnostics, HarnessId, HarnessInfo, ModelUsageRangeResponse, ModelUsageRangeRow, RateLimitSnapshot, SessionDayTotal, SummaryResponse, TokenUsage, WeeklyTotal } from "../shared/types";
 import { addUsage, emptyUsage } from "../shared/tokenMath";
 import { addDays, startOfWeek, todayInZone, toLocalDate } from "./dateUtils";
 import { appConfig } from "./config";
@@ -396,6 +396,58 @@ export const getDay = async (harnessId: HarnessId, date: string) => {
       latestForDay: latestRateLimitForDay(store, date),
       weekToDate
     }
+  };
+};
+
+export const getModelUsageRange = async (from: string, to: string): Promise<ModelUsageRangeResponse> => {
+  await ensureScanned();
+  const byHarnessDateAndModel = new Map<string, ModelUsageRangeRow & { sessionIds: Set<string> }>();
+
+  for (const harnessId of Object.keys(harnesses) as HarnessId[]) {
+    const harness = harnesses[harnessId];
+    const store = stores[harnessId];
+    const priorities = dailyPrioritiesFor(store);
+
+    for (const summary of Object.values(store.files)) {
+      for (const [date, sessions] of Object.entries(summary.daily)) {
+        if (date < from || date > to || !usesDailySummary(summary, date, priorities)) continue;
+
+        for (const session of sessions) {
+          const key = `${harnessId}|${date}|${session.model}`;
+          let row = byHarnessDateAndModel.get(key);
+          if (!row) {
+            row = {
+              ...emptyUsage(),
+              harness: harness.info,
+              date,
+              model: session.model,
+              events: 0,
+              sessions: 0,
+              sessionIds: new Set<string>()
+            };
+            byHarnessDateAndModel.set(key, row);
+          }
+
+          addUsage(row, session);
+          row.events += session.events;
+          row.sessionIds.add(session.sessionId);
+          row.sessions = row.sessionIds.size;
+        }
+      }
+    }
+  }
+
+  const rows = [...byHarnessDateAndModel.values()]
+    .map(({ sessionIds: _sessionIds, ...row }) => row)
+    .sort((a, b) => (
+      a.date.localeCompare(b.date)
+      || a.harness.name.localeCompare(b.harness.name)
+      || a.model.localeCompare(b.model)
+    ));
+
+  return {
+    range: { from, to, timezone: appConfig.timezone },
+    rows
   };
 };
 

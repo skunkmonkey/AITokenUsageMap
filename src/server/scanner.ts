@@ -50,7 +50,16 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
       name: "Codex",
       description: "Observed local token usage from Codex session logs.",
       usageLabel: "Observed local tokens",
-      confidence: null
+      confidence: {
+        captured: "High for local Codex session logs that still exist on this machine.",
+        total: "Medium for total personal Codex usage because deleted logs, other machines, and cloud or web sessions can be missed.",
+        billing: "Low for billing reconciliation because provider billing and rate-limit accounting use server-side records."
+      },
+      caveats: [
+        "Input, cached input, output, and reasoning output come from local token_count events; older or partial records may only expose cumulative totals.",
+        "Totals follow the values reported by Codex logs when present, so reasoning output may be a separate diagnostic field rather than an additive extra.",
+        "Local files do not prove account-wide usage, billing usage, or usage from other devices."
+      ]
     },
     roots: appConfig.codexRoots,
     collectFiles: async (roots) => collectMatchingFiles(roots, (entry) => entry.name.startsWith("rollout-") && entry.name.endsWith(".jsonl")),
@@ -66,7 +75,12 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
         captured: "High for captured local VS Code Copilot Chat and agent requests when debug logs include token fields.",
         total: "Medium for total personal Copilot usage because completions, GitHub.com, CLI, other IDEs, remote environments, disabled logging, and log rotation can be missed.",
         billing: "Low for billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments."
-      }
+      },
+      caveats: [
+        "VS Code debug logs are unofficial diagnostic data; token field names and availability can change between Copilot versions.",
+        "Some Copilot activity is not captured here, including inline completions, GitHub.com, CLI usage, other IDEs, remote sessions, disabled logging, and rotated logs.",
+        "AI Credit billing depends on server-side pricing, model multipliers, entitlements, and adjustments, so local token splits are not a bill."
+      ]
     },
     roots: appConfig.copilotRoots,
     collectFiles: async (roots) => collectMatchingFiles(roots, (entry, fullPath) => (
@@ -85,7 +99,12 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
         captured: "Medium-high for local Claude Code /usage aggregates in stats-cache.json when present; lower for transcript-derived session detail because JSONL token fields can be version-sensitive.",
         total: "Medium for total personal Claude Code usage because other machines, cloud sessions, disabled persistence, transcript cleanup, and alternate config directories can be missed.",
         billing: "Low for billing reconciliation because Claude Code local cost and token figures are estimates and provider billing uses server-side accounting."
-      }
+      },
+      caveats: [
+        "Daily Claude Code totals prefer stats-cache.json, which is an aggregate cache; daily input/output splits may be proportioned from model-level breakdowns when exact daily splits are unavailable.",
+        "Transcript-derived session detail can undercount on some Claude Code versions and may disappear after cleanup or when session persistence is disabled.",
+        "Claude cache read and cache creation tokens are merged into Cached input in this dashboard."
+      ]
     },
     roots: appConfig.claudeRoots,
     collectFiles: async (roots) => collectMatchingFiles(roots, (entry, fullPath) => (

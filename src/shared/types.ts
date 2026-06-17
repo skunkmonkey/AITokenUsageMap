@@ -20,6 +20,7 @@ export type HarnessInfo = {
   description: string;
   usageLabel: string;
   confidence: HarnessConfidence | null;
+  caveats: string[];
 };
 
 export type DayTotal = TokenUsage & {

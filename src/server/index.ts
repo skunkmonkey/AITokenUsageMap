@@ -2,7 +2,8 @@ import cors from "cors";
 import express from "express";
 import type { HarnessId } from "../shared/types";
 import { appConfig } from "./config";
-import { getConfig, getDay, getSummary, scanAllLogs } from "./scanner";
+import { getPricingForModels, setManualPricing } from "./pricing";
+import { getConfig, getDay, getModelUsageRange, getSummary, scanAllLogs } from "./scanner";
 
 const app = express();
 app.use(cors());
@@ -48,6 +49,52 @@ app.get("/api/summary", async (req, res, next) => {
 app.get("/api/day/:harness/:date", async (req, res, next) => {
   try {
     res.json(await getDay(req.params.harness as HarnessId, req.params.date));
+  } catch (error) {
+    next(error);
+  }
+});
+
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+const isValidIsoDate = (value: string): boolean => {
+  if (!isoDatePattern.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+app.get("/api/model-usage", async (req, res, next) => {
+  try {
+    const from = String(req.query.from ?? "");
+    const to = String(req.query.to ?? "");
+    if (!isValidIsoDate(from) || !isValidIsoDate(to)) {
+      res.status(400).json({ error: "from and to must be YYYY-MM-DD dates." });
+      return;
+    }
+    if (to < from) {
+      res.status(400).json({ error: "to must be on or after from." });
+      return;
+    }
+    res.json(await getModelUsageRange(from, to));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/pricing", async (req, res, next) => {
+  try {
+    const modelQuery = req.query.model;
+    const models = Array.isArray(modelQuery)
+      ? modelQuery.flatMap((model) => String(model).split(","))
+      : String(modelQuery ?? "").split(",");
+    res.json(getPricingForModels(models));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/pricing", async (req, res, next) => {
+  try {
+    res.json(setManualPricing(req.body));
   } catch (error) {
     next(error);
   }

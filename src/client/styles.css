@@ -105,7 +105,8 @@ p {
 .stat,
 .panel,
 .details,
-.confidencePanel,
+.tokenBreakdown,
+.caveatsDisclosure,
 .diagnosticsPanel,
 .emptyPanel,
 .error {
@@ -166,31 +167,147 @@ p {
   text-overflow: ellipsis;
 }
 
+.tokenBreakdown {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.tokenMetric {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #eef1f4;
+}
+
+.tokenMetric:last-child {
+  border-right: 0;
+}
+
+.tokenMetric strong,
+.tokenMetric span,
+.tokenMetric small {
+  display: block;
+}
+
+.tokenMetric strong {
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.tokenMetric span {
+  margin-top: 5px;
+  color: #1f2933;
+  font-size: 12px;
+}
+
+.tokenMetric small {
+  margin-top: 2px;
+  color: #66737f;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.details .tokenBreakdown.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #eef1f4;
+  border-radius: 0;
+  background: #fbfcfd;
+}
+
+.details .tokenBreakdown.compact .tokenMetric {
+  padding: 9px 12px;
+  border-right: 1px solid #eef1f4;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.details .tokenBreakdown.compact .tokenMetric:first-child {
+  grid-column: 1 / -1;
+}
+
+.details .tokenBreakdown.compact .tokenMetric:nth-child(2n + 1) {
+  border-right: 0;
+}
+
+.details .tokenBreakdown.compact .tokenMetric:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.details .tokenBreakdown.compact .tokenMetric strong {
+  font-size: 16px;
+}
+
 .panel {
   padding: 16px;
 }
 
-.confidencePanel {
-  padding: 12px;
+.caveatsDisclosure {
   margin-bottom: 14px;
+  color: #1f2933;
 }
 
-.confidencePanel h3 {
-  margin: 0 0 10px;
+.caveatsDisclosure summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.caveatsDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.caveatsDisclosure summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #c9d2dc;
+  border-radius: 50%;
+  color: #66737f;
+  font-size: 14px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.caveatsDisclosure[open] summary::after {
+  content: "-";
+}
+
+.caveatsDisclosure summary span {
   font-size: 13px;
-  line-height: 1.2;
+  font-weight: 600;
 }
 
-.confidenceGrid {
+.caveatsDisclosure summary small {
+  margin-left: auto;
+  color: #66737f;
+  font-size: 12px;
+}
+
+.caveatGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+  padding: 12px;
+  border-top: 1px solid #eef1f4;
 }
 
-.confidenceGrid .miniStat small {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
+.caveatGrid strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.caveatGrid p {
+  margin-top: 4px;
   line-height: 1.35;
 }
 
@@ -373,6 +490,23 @@ p {
   margin-top: 10px;
 }
 
+.caveatsDisclosure ul {
+  margin: 0;
+  padding: 0 12px 12px 28px;
+  color: #66737f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.caveatsDisclosure li + li {
+  margin-top: 6px;
+}
+
+.caveatsDisclosure ul:first-child {
+  padding-top: 12px;
+  border-top: 1px solid #eef1f4;
+}
+
 .panelHead {
   display: flex;
   justify-content: space-between;
@@ -536,6 +670,39 @@ td {
   white-space: nowrap;
 }
 
+.tokenMixCell {
+  max-width: none;
+  min-width: 150px;
+  white-space: normal;
+}
+
+.sessionUsage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 8px;
+}
+
+.sessionUsage span {
+  color: #66737f;
+  font-size: 11px;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.sessionUsage strong {
+  color: #1f2933;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.sessionUsage span:last-child {
+  grid-column: 1 / -1;
+  padding-top: 4px;
+  border-top: 1px solid #eef1f4;
+}
+
 .diagnosticsPanel {
   margin-top: 14px;
   padding: 12px;
@@ -588,7 +755,28 @@ td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .confidenceGrid {
+  .tokenBreakdown {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tokenBreakdown .tokenMetric {
+    border-bottom: 1px solid #eef1f4;
+  }
+
+  .tokenBreakdown .tokenMetric:first-child {
+    grid-column: 1 / -1;
+    border-right: 0;
+  }
+
+  .tokenBreakdown .tokenMetric:nth-child(2n + 1) {
+    border-right: 0;
+  }
+
+  .tokenBreakdown .tokenMetric:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .caveatGrid {
     grid-template-columns: 1fr;
   }
 

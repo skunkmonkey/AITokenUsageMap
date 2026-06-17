@@ -10,6 +10,8 @@ Supported sources:
 
 The dashboard only shows sources that are present on the current machine. Developers who use one supported tool see one display. Developers with multiple supported tools installed see each detected source at the same time.
 
+For each detected source, the dashboard reports total, input, cached input, output, and reasoning tokens separately when those fields are present in local logs. It also includes a small "Why these numbers can mislead" disclosure for source-specific caveats such as local-only coverage, unofficial debug fields, cache accounting, log retention, and billing differences.
+
 ## Cost analysis
 
 The dashboard includes a cost analysis panel at the bottom of the page. Enter a start and end date, or use the calendar buttons to pick them, and the dashboard aggregates model usage across that date range. It estimates cost from input, cached input, and output token rates, and shows the total per model.

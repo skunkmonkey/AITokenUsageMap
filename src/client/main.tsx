@@ -218,6 +218,61 @@ function MiniStat({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
+function TokenBreakdown({
+  usage,
+  totalLabel = "Total",
+  totalDetail = "Source-reported total",
+  compact = false
+}: {
+  usage: TokenUsage;
+  totalLabel?: string;
+  totalDetail?: string;
+  compact?: boolean;
+}) {
+  const items = [
+    { label: totalLabel, value: usage.totalTokens, detail: totalDetail },
+    { label: "Input", value: usage.inputTokens, detail: "Prompt and context" },
+    { label: "Cached input", value: usage.cachedInputTokens, detail: "Reused context" },
+    { label: "Output", value: usage.outputTokens, detail: "Model response" },
+    { label: "Reasoning", value: usage.reasoningOutputTokens, detail: "When logged separately" }
+  ];
+
+  return (
+    <section className={compact ? "tokenBreakdown compact" : "tokenBreakdown"} aria-label={`${totalLabel} token breakdown`}>
+      {items.map((item) => (
+        <div className="tokenMetric" key={item.label}>
+          <strong>{formatTokens(item.value)}</strong>
+          <span>{item.label}</span>
+          <small>{item.detail}</small>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function SessionTokenMix({ usage }: { usage: TokenUsage }) {
+  const items = [
+    ["Input", usage.inputTokens],
+    ["Output", usage.outputTokens],
+    ["Cached", usage.cachedInputTokens],
+    ["Total", usage.totalTokens]
+  ] as const;
+  const visibleItems = usage.reasoningOutputTokens > 0
+    ? [...items.slice(0, 3), ["Reasoning", usage.reasoningOutputTokens] as const, items[3]]
+    : items;
+
+  return (
+    <div className="sessionUsage" aria-label="Session token breakdown">
+      {visibleItems.map(([label, value]) => (
+        <span key={label}>
+          <strong>{formatTokens(value)}</strong>
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function WeeklyLine({ weekly }: { weekly: WeeklyTotal[] }) {
   const width = 980;
   const height = 132;
@@ -321,17 +376,38 @@ function Heatmap({
   );
 }
 
-function ConfidencePanel({ summary }: { summary: SummaryResponse }) {
-  if (!summary.harness.confidence) return null;
+function CaveatsDisclosure({ summary }: { summary: SummaryResponse }) {
+  const confidence = summary.harness.confidence;
+  if (!confidence && summary.harness.caveats.length === 0) return null;
+
   return (
-    <section className="confidencePanel" aria-label={`${summary.harness.name} accuracy guidance`}>
-      <h3>Confidence</h3>
-      <div className="confidenceGrid">
-        <MiniStat label="Captured local requests" value="High" detail={summary.harness.confidence.captured} />
-        <MiniStat label="Total personal usage" value="Medium" detail={summary.harness.confidence.total} />
-        <MiniStat label="Billing reconciliation" value="Low" detail={summary.harness.confidence.billing} />
-      </div>
-    </section>
+    <details className="caveatsDisclosure">
+      <summary>
+        <span>Why these numbers can mislead</span>
+        <small>{summary.harness.usageLabel}</small>
+      </summary>
+      {confidence && (
+        <div className="caveatGrid" aria-label={`${summary.harness.name} confidence`}>
+          <div>
+            <strong>Captured local requests</strong>
+            <p>{confidence.captured}</p>
+          </div>
+          <div>
+            <strong>Total personal usage</strong>
+            <p>{confidence.total}</p>
+          </div>
+          <div>
+            <strong>Billing reconciliation</strong>
+            <p>{confidence.billing}</p>
+          </div>
+        </div>
+      )}
+      {summary.harness.caveats.length > 0 && (
+        <ul>
+          {summary.harness.caveats.map((caveat) => <li key={caveat}>{caveat}</li>)}
+        </ul>
+      )}
+    </details>
   );
 }
 
@@ -652,6 +728,7 @@ function DayDetails({ day }: { day: DayResponse | null }) {
         <span>{day.date}</span>
         <strong>{formatTokens(day.totals.totalTokens)}</strong>
       </div>
+      <TokenBreakdown usage={day.totals} totalLabel="Day total" compact />
       {hasRateLimit && (
         <section className="rateSummary">
           <h3>Selected day limit snapshot</h3>
@@ -679,8 +756,7 @@ function DayDetails({ day }: { day: DayResponse | null }) {
           <tr>
             <th>Session</th>
             <th>Model</th>
-            <th>Tokens</th>
-            <th>Cached</th>
+            <th>Token mix</th>
           </tr>
         </thead>
         <tbody>
@@ -688,8 +764,7 @@ function DayDetails({ day }: { day: DayResponse | null }) {
             <tr key={`${session.sessionId}-${session.model}`}>
               <td title={session.cwd ?? session.sessionId}>{session.cwd ? session.cwd.split(/[\\/]/).slice(-2).join("/") : session.sessionId.slice(0, 8)}</td>
               <td>{session.model}</td>
-              <td>{formatTokens(session.totalTokens)}</td>
-              <td>{formatTokens(session.cachedInputTokens)}</td>
+              <td className="tokenMixCell"><SessionTokenMix usage={session} /></td>
             </tr>
           ))}
         </tbody>
@@ -731,7 +806,8 @@ function HarnessDashboard({
         <Stat label="Monthly total" value={formatTokens(monthlyStats.totals.totalTokens)} detail={`${monthlyStats.from} to ${monthlyStats.to}`} />
       </section>
 
-      <ConfidencePanel summary={summary} />
+      <TokenBreakdown usage={monthlyStats.totals} totalLabel="Month total" totalDetail={`${monthlyStats.from} to ${monthlyStats.to}`} />
+      <CaveatsDisclosure summary={summary} />
 
       <section className="panel">
         <div className="panelHead">

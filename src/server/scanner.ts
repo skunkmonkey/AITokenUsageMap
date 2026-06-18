@@ -77,8 +77,8 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
         billing: "Low for billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments."
       },
       caveats: [
-        "VS Code debug logs are unofficial diagnostic data; token field names and availability can change between Copilot versions.",
-        "Some Copilot activity is not captured here, including inline completions, GitHub.com, CLI usage, other IDEs, remote sessions, disabled logging, and rotated logs.",
+        "VS Code debug logs and Copilot CLI session files are local diagnostic/session data; token field names and availability can change between Copilot versions.",
+        "Some Copilot activity is not captured here, including inline completions, GitHub.com, other IDEs, remote sessions, disabled logging, deleted sessions, and rotated logs.",
         "AI Credit billing depends on server-side pricing, model multipliers, entitlements, and adjustments, so local token splits are not a bill."
       ]
     },
@@ -86,6 +86,9 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
     collectFiles: async (roots) => collectMatchingFiles(roots, (entry, fullPath) => (
       entry.name.endsWith(".jsonl")
       && fullPath.includes(`${path.sep}GitHub.copilot-chat${path.sep}debug-logs${path.sep}`)
+    ) || (
+      entry.name === "events.jsonl"
+      && fullPath.includes(`${path.sep}session-state${path.sep}`)
     )),
     parseFile: parseCopilotDebugFile
   },

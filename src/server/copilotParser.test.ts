@@ -104,4 +104,126 @@ describe("parseCopilotDebugFile", () => {
     expect(session.model).toBe("claude-sonnet-4");
     expect(session.totalTokens).toBe(125);
   });
+
+  it("sums Copilot CLI shutdown model metrics from session-state events", async () => {
+    const file = await writeFixture([
+      JSON.stringify({
+        type: "session.start",
+        data: {
+          sessionId: "cli-session",
+          copilotVersion: "1.0.63",
+          context: {
+            cwd: "/work/project"
+          }
+        },
+        id: "start",
+        timestamp: "2026-06-02T10:00:00.000Z",
+        parentId: null
+      }),
+      JSON.stringify({
+        type: "assistant.message",
+        data: {
+          outputTokens: 999
+        },
+        id: "partial-output-only",
+        timestamp: "2026-06-02T10:01:00.000Z",
+        parentId: "start"
+      }),
+      JSON.stringify({
+        type: "session.shutdown",
+        data: {
+          modelMetrics: {
+            "claude-opus-4.6": {
+              requests: { count: 2, cost: 3 },
+              usage: {
+                inputTokens: 46281,
+                outputTokens: 316,
+                cacheReadTokens: 20928,
+                cacheWriteTokens: 11,
+                reasoningTokens: 7
+              }
+            }
+          }
+        },
+        id: "shutdown",
+        timestamp: "2026-06-02T10:05:00.000Z",
+        parentId: "partial-output-only"
+      })
+    ]);
+
+    const cliPath = path.join(path.dirname(file), "session-state", "cli-session", "events.jsonl");
+    await fs.mkdir(path.dirname(cliPath), { recursive: true });
+    await fs.rename(file, cliPath);
+
+    const parsed = await parseCopilotDebugFile(cliPath, "UTC");
+    const session = parsed.daily["2026-06-02"][0];
+    expect(session.sessionId).toBe("cli-session");
+    expect(session.cwd).toBe("/work/project");
+    expect(session.originator).toBe("github-copilot-cli");
+    expect(session.model).toBe("claude-opus-4.6");
+    expect(session.inputTokens).toBe(46281);
+    expect(session.outputTokens).toBe(316);
+    expect(session.cachedInputTokens).toBe(20939);
+    expect(session.reasoningOutputTokens).toBe(7);
+    expect(session.totalTokens).toBe(46604);
+    expect(parsed.tokenEvents).toBe(1);
+  });
+
+  it("prefers Copilot CLI assistant usage events over shutdown aggregates when both exist", async () => {
+    const file = await writeFixture([
+      JSON.stringify({
+        type: "session.start",
+        data: {
+          sessionId: "cli-session",
+          context: { cwd: "/work/project" }
+        },
+        id: "start",
+        timestamp: "2026-06-03T10:00:00.000Z",
+        parentId: null
+      }),
+      JSON.stringify({
+        type: "assistant.usage",
+        data: {
+          model: "gpt-5",
+          inputTokens: 100,
+          outputTokens: 25,
+          cacheReadTokens: 10
+        },
+        id: "usage",
+        timestamp: "2026-06-03T10:01:00.000Z",
+        parentId: "start"
+      }),
+      JSON.stringify({
+        type: "session.shutdown",
+        data: {
+          modelMetrics: {
+            "gpt-5": {
+              requests: { count: 1 },
+              usage: {
+                inputTokens: 1000,
+                outputTokens: 250,
+                cacheReadTokens: 100,
+                cacheWriteTokens: 0
+              }
+            }
+          }
+        },
+        id: "shutdown",
+        timestamp: "2026-06-03T10:05:00.000Z",
+        parentId: "usage"
+      })
+    ]);
+
+    const cliPath = path.join(path.dirname(file), "session-state", "cli-session", "events.jsonl");
+    await fs.mkdir(path.dirname(cliPath), { recursive: true });
+    await fs.rename(file, cliPath);
+
+    const parsed = await parseCopilotDebugFile(cliPath, "UTC");
+    const session = parsed.daily["2026-06-03"][0];
+    expect(session.inputTokens).toBe(100);
+    expect(session.outputTokens).toBe(25);
+    expect(session.cachedInputTokens).toBe(10);
+    expect(session.totalTokens).toBe(125);
+    expect(parsed.tokenEvents).toBe(1);
+  });
 });

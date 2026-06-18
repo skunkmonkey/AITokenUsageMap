@@ -5,6 +5,7 @@ import { scaleLinear, scaleLog } from "d3-scale";
 import type { DashboardResponse, DayResponse, DayTotal, HarnessId, ModelPricing, ModelPricingUpdate, ModelUsageRangeResponse, PricingResponse, SummaryResponse, TokenUsage, WeeklyTotal } from "../shared/types";
 import { billableUsageParts, cachedInputModeForHarness, calculateUsageCost } from "../shared/costMath";
 import { addUsage, emptyUsage } from "../shared/tokenMath";
+import { formatDateInput, parseDateInput, showNativeDatePicker } from "./dateInput";
 import "./styles.css";
 
 const tokenFormat = new Intl.NumberFormat("en-US", {
@@ -153,49 +154,6 @@ const parseRate = (value: string): number | null => {
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-};
-
-const isoDateFromParts = (year: number, month: number, day: number): string | null => {
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  if (
-    parsed.getUTCFullYear() !== year
-    || parsed.getUTCMonth() !== month - 1
-    || parsed.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return parsed.toISOString().slice(0, 10);
-};
-
-const parseDateInput = (value: string): string | null => {
-  const trimmed = value.trim();
-  const slashDate = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
-  if (slashDate) {
-    return isoDateFromParts(Number(slashDate[3]), Number(slashDate[1]), Number(slashDate[2]));
-  }
-
-  const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (isoDate) {
-    return isoDateFromParts(Number(isoDate[1]), Number(isoDate[2]), Number(isoDate[3]));
-  }
-
-  return null;
-};
-
-const formatDateInput = (isoDate: string): string => {
-  const [year, month, day] = isoDate.split("-");
-  return `${Number(month)}/${Number(day)}/${year}`;
-};
-
-const showNativeDatePicker = (input: HTMLInputElement | null) => {
-  if (!input) return;
-  const picker = input as HTMLInputElement & { showPicker?: () => void };
-  if (picker.showPicker) {
-    picker.showPicker();
-  } else {
-    picker.focus();
-    picker.click();
-  }
 };
 
 function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {

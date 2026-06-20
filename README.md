@@ -5,7 +5,7 @@ Local dashboard for viewing token usage from supported AI coding tools.
 Supported sources:
 
 - Codex session JSONL logs.
-- GitHub Copilot Chat/agent debug JSONL logs from VS Code.
+- GitHub Copilot Chat/agent debug JSONL logs from VS Code and Copilot CLI session JSONL logs.
 - Claude Code local `/usage` aggregates and session transcript JSONL logs.
 
 The dashboard only shows sources that are present on the current machine. Developers who use one supported tool see one display. Developers with multiple supported tools installed see each detected source at the same time.
@@ -36,11 +36,19 @@ By default, the scanner reads Codex logs from:
 - Windows: `%USERPROFILE%\.codex\sessions` and `%USERPROFILE%\.codex\archived_sessions`
 - macOS/Linux: `~/.codex/sessions` and `~/.codex/archived_sessions`
 
-It reads VS Code Copilot Chat debug logs from:
+It reads GitHub Copilot usage from VS Code Copilot Chat debug logs and Copilot CLI session logs.
+
+VS Code Copilot Chat debug logs are read from:
 
 - Windows: `%APPDATA%\Code\User\workspaceStorage`, `%APPDATA%\Code - Insiders\User\workspaceStorage`, and `%APPDATA%\VSCodium\User\workspaceStorage`
 - macOS: `~/Library/Application Support/Code/User/workspaceStorage`, `~/Library/Application Support/Code - Insiders/User/workspaceStorage`, and `~/Library/Application Support/VSCodium/User/workspaceStorage`
 - Linux: `~/.config/Code/User/workspaceStorage`, `~/.config/Code - Insiders/User/workspaceStorage`, and `~/.config/VSCodium/User/workspaceStorage`
+
+Copilot CLI session logs are read from:
+
+- Windows: `%USERPROFILE%\.copilot\session-state`
+- macOS/Linux: `~/.copilot/session-state`
+- Any platform: the `session-state` directory under `COPILOT_HOME` when `COPILOT_HOME` is set
 
 It reads Claude Code usage from:
 
@@ -53,13 +61,14 @@ It reads Claude Code usage from:
 - `CODEX_HOME`: override the Codex home directory.
 - `CODEX_USAGE_TZ`: override the timezone. Defaults to `America/Denver`.
 - `CODEX_USAGE_PORT`: override the API port. Defaults to `5174`.
-- `COPILOT_USAGE_ROOTS`: override GitHub Copilot workspace storage roots. Use the platform path delimiter (`;` on Windows, `:` on macOS/Linux) for multiple roots.
+- `COPILOT_HOME`: changes where Copilot CLI stores its config and session data. The dashboard follows this for CLI session logs.
+- `COPILOT_USAGE_ROOTS`: override all GitHub Copilot roots, including VS Code workspace storage and Copilot CLI session-state roots. Use the platform path delimiter (`;` on Windows, `:` on macOS/Linux) for multiple roots.
 - `CLAUDE_CONFIG_DIR`: override Claude Code's config/data directory. This matches Claude Code's own environment variable.
 - `CLAUDE_USAGE_ROOTS`: override Claude Code usage roots. Use the platform path delimiter (`;` on Windows, `:` on macOS/Linux) for multiple roots.
 
 ## GitHub Copilot tracking
 
-Copilot tracking is local and estimated. It reads VS Code Copilot Chat debug logs after they have been written to disk; the dashboard does not need to be running while Copilot is used.
+Copilot tracking is local and estimated. It reads VS Code Copilot Chat debug logs and Copilot CLI session logs after they have been written to disk; the dashboard does not need to be running while Copilot is used.
 
 To produce logs with token fields, VS Code Copilot Chat debug file logging may need to be enabled:
 
@@ -76,12 +85,14 @@ To produce logs with token fields, VS Code Copilot Chat debug file logging may n
 
 5. Save the settings file and restart VS Code if Copilot logs do not appear after new chat or agent activity.
 
-After enabling logging, use Copilot normally, then run or rescan this dashboard. If no Copilot display appears, the dashboard did not find Copilot debug JSONL files with countable `llm_request` token events.
+Copilot CLI does not need the VS Code debug-log setting. Current Copilot CLI versions persist local session data under `~/.copilot/session-state/` by default, or under `COPILOT_HOME/session-state/` when `COPILOT_HOME` is set. The dashboard reads completed CLI session aggregates from `events.jsonl` files, including the per-model usage that backs the CLI's `/usage` command. If you refresh while a Copilot CLI session is still active, subagent models may be absent or incomplete until the CLI writes its final `session.shutdown` aggregate. The dashboard intentionally avoids counting output-only active subagent messages because those records do not include complete input, cached input, or reasoning token totals. If you need standalone telemetry files outside this dashboard, Copilot CLI can also export OpenTelemetry JSONL by setting `COPILOT_OTEL_FILE_EXPORTER_PATH`, but that is not required for this dashboard.
+
+After enabling VS Code logging or using Copilot CLI normally, run or rescan this dashboard. If no Copilot display appears, the dashboard did not find Copilot debug JSONL files with countable token events or Copilot CLI `session.shutdown` usage aggregates.
 
 Accuracy guidance:
 
-- High for captured local VS Code Copilot Chat and agent requests when debug logs include token fields.
-- Medium for a developer's total personal Copilot usage because completions, GitHub.com, CLI, other IDEs, remote environments, disabled logging, and log rotation can be missed.
+- High for captured local VS Code Copilot Chat/agent requests when debug logs include token fields, and for completed Copilot CLI sessions that still have local `events.jsonl` shutdown usage aggregates.
+- Medium for a developer's total personal Copilot usage because completions, GitHub.com, other IDEs, remote environments, disabled logging, deleted sessions, and log rotation can be missed.
 - Low for billing reconciliation because GitHub bills pooled overages in AI Credits with server-side pricing, entitlements, and adjustments.
 
 ## Claude Code tracking
@@ -100,6 +111,6 @@ Accuracy guidance:
 
 The Codex scanner streams rollout files and only parses session metadata, model context, and `token_count` events. Usage is counted from `last_token_usage` when present, with cumulative delta fallback for older records.
 
-The GitHub Copilot scanner streams Copilot debug JSONL files and counts `llm_request` events with numeric token fields. These logs are unofficial/debug data, so field names and availability may change.
+The GitHub Copilot scanner streams VS Code Copilot debug JSONL files and counts `llm_request` events with numeric token fields. It also scans Copilot CLI `session-state/**/events.jsonl` files and counts per-model `session.shutdown` usage aggregates, preferring per-request `assistant.usage` events if a future CLI version persists them. Active CLI child-agent records can mention their model before shutdown, but they are not counted until complete usage fields are available. These logs are unofficial local data, so field names and availability may change.
 
 The Claude Code scanner reads `stats-cache.json` for aggregate daily totals and streams Claude transcript JSONL files for assistant messages with `message.usage` token fields. Transcript token fields are version-sensitive, so aggregate totals are preferred whenever both sources are available.

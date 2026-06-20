@@ -90,9 +90,11 @@ const cellColor = (value: number, max: number): string => {
 };
 
 const monthLabel = (date: string): string => {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  return parsed.toLocaleDateString("en-US", { month: "short" });
+  const month = Number(date.slice(5, 7));
+  return ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][month - 1] ?? "";
 };
+
+const monthKey = (date: string): string => date.slice(0, 7);
 
 const startOfMonth = (date: string): string => `${date.slice(0, 7)}-01`;
 
@@ -216,7 +218,7 @@ function SessionTokenMix({ usage }: { usage: TokenUsage }) {
     ["Total", usage.totalTokens]
   ] as const;
   const visibleItems = usage.reasoningOutputTokens > 0
-    ? [...items.slice(0, 3), ["Reasoning", usage.reasoningOutputTokens] as const, items[3]]
+    ? [...items.slice(0, 3), ["Reason", usage.reasoningOutputTokens] as const, items[3]]
     : items;
 
   return (
@@ -234,13 +236,14 @@ function SessionTokenMix({ usage }: { usage: TokenUsage }) {
 function WeeklyLine({ weekly }: { weekly: WeeklyTotal[] }) {
   const width = 980;
   const height = 132;
-  const pad = { left: 18, right: 12, top: 12, bottom: 24 };
+  const pad = { left: 22, right: 28, top: 12, bottom: 24 };
   const max = Math.max(1, ...weekly.map((week) => week.totalTokens));
   const x = scaleLinear().domain([0, Math.max(1, weekly.length - 1)]).range([pad.left, width - pad.right]);
   const y = scaleLog().domain([1, Math.max(2, max)]).range([height - pad.bottom, pad.top]);
   const path = line<WeeklyTotal>()
     .x((_week, index) => x(index))
     .y((week) => y(Math.max(1, week.totalTokens)))(weekly) ?? "";
+  const monthTicks = weekly.filter((week, index) => index === 0 || monthKey(week.weekStart) !== monthKey(weekly[index - 1].weekStart));
 
   return (
     <div className="lineChart" aria-label="Weekly total token line chart">
@@ -252,13 +255,15 @@ function WeeklyLine({ weekly }: { weekly: WeeklyTotal[] }) {
             <title>{`${week.weekStart}: ${fullFormat.format(week.totalTokens)} tokens`}</title>
           </circle>
         ))}
-        {weekly.map((week, index) =>
-          index % Math.max(1, Math.floor(weekly.length / 8)) === 0 ? (
-            <text key={week.weekStart} x={x(index)} y={height - 6}>
+        {monthTicks.map((week) => {
+          const index = weekly.indexOf(week);
+          const anchor = index === 0 ? "start" : index === weekly.length - 1 ? "end" : "middle";
+          return (
+            <text key={week.weekStart} x={x(index)} y={height - 6} textAnchor={anchor}>
               {monthLabel(week.weekStart)}
             </text>
-          ) : null
-        )}
+          );
+        })}
       </svg>
     </div>
   );
@@ -710,6 +715,11 @@ function DayDetails({ day }: { day: DayResponse | null }) {
         </section>
       )}
       <table>
+        <colgroup>
+          <col className="sessionColumn" />
+          <col className="modelColumn" />
+          <col className="tokenMixColumn" />
+        </colgroup>
         <thead>
           <tr>
             <th>Session</th>
@@ -720,8 +730,8 @@ function DayDetails({ day }: { day: DayResponse | null }) {
         <tbody>
           {day.sessions.map((session) => (
             <tr key={`${session.sessionId}-${session.model}`}>
-              <td title={session.cwd ?? session.sessionId}>{session.cwd ? session.cwd.split(/[\\/]/).slice(-2).join("/") : session.sessionId.slice(0, 8)}</td>
-              <td>{session.model}</td>
+              <td className="ellipsisCell" title={session.cwd ?? session.sessionId}>{session.cwd ? session.cwd.split(/[\\/]/).slice(-2).join("/") : session.sessionId.slice(0, 8)}</td>
+              <td className="ellipsisCell" title={session.model}>{session.model}</td>
               <td className="tokenMixCell"><SessionTokenMix usage={session} /></td>
             </tr>
           ))}

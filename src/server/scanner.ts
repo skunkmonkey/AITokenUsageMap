@@ -78,6 +78,7 @@ const harnesses: Record<HarnessId, HarnessConfig> = {
       },
       caveats: [
         "VS Code debug logs and Copilot CLI session files are local diagnostic/session data; token field names and availability can change between Copilot versions.",
+        "Copilot CLI per-model totals come from completed session shutdown aggregates; active sessions, including subagents, may not show complete model usage until the CLI session exits.",
         "Some Copilot activity is not captured here, including inline completions, GitHub.com, other IDEs, remote sessions, disabled logging, deleted sessions, and rotated logs.",
         "AI Credit billing depends on server-side pricing, model multipliers, entitlements, and adjustments, so local token splits are not a bill."
       ]

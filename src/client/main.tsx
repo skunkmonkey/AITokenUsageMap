@@ -142,7 +142,7 @@ const emptyCostRow = (model: string): CostRow => ({
 
 const pricingSourceLabel = (pricing: ModelPricing | null | undefined): string => {
   if (!pricing) return "Loading";
-  if (pricing.source === "catalog") return "Lookup";
+  if (pricing.source === "catalog") return "Official";
   if (pricing.source === "manual") return "Manual";
   return "Missing";
 };
@@ -611,7 +611,7 @@ function CostAnalysisPanel({
         </div>
         <div className="costTotals">
           <MiniStat label="Estimated total" value={totalValue} detail={totalDetail} />
-          <MiniStat label="Lookup rates" value={fullFormat.format(lookupModels)} detail="Built-in catalog hits" />
+          <MiniStat label="Official rates" value={fullFormat.format(lookupModels)} detail="Live source or verified fallback" />
         </div>
       </div>
 
@@ -627,6 +627,13 @@ function CostAnalysisPanel({
       {!loading && !validationMessage && activeUsage && rows.length > 0 ? (
         <div className="costTableWrap">
           <table className="costTable">
+            <colgroup>
+              <col className="costModelColumn" />
+              <col className="costActivityColumn" />
+              <col className="costTokensColumn" />
+              <col className="costRatesColumn" />
+              <col className="costAmountColumn" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Model</th>
@@ -657,8 +664,14 @@ function CostAnalysisPanel({
                     </td>
                     <td className="costRateCell">
                       <PricingInputs model={row.model} pricing={pricing} onSavePricing={onSavePricing} />
-                      {pricing?.source === "catalog" && pricing.sourceUrl && (
-                        <small>Lookup: {pricing.provider}, updated {pricing.updatedAt}</small>
+                      {pricing?.sourceUrl && (
+                        <small>
+                          <a href={pricing.sourceUrl} target="_blank" rel="noreferrer">
+                            {pricing.source === "catalog"
+                              ? `Official ${pricing.provider} rate, checked ${pricing.updatedAt}`
+                              : "GitHub's official pricing explanation"}
+                          </a>
+                        </small>
                       )}
                       {pricing?.notes.map((note) => <small key={note}>{note}</small>)}
                     </td>
@@ -675,7 +688,7 @@ function CostAnalysisPanel({
       {!loading && validRange && !activeUsage && (
         <div className="emptyPanel">Loading cost range...</div>
       )}
-      <p className="costFootnote">Estimates use API-style token rates. Subscription plans, GitHub Copilot AI Credits, regional routing, batch discounts, and cache-write premiums may differ from this local estimate.</p>
+      <p className="costFootnote">Estimates use official standard per-token rates. Subscription allowances, long-context requests, regional routing, batch discounts, cache writes, and Copilot code review's undisclosed model may differ from this local estimate.</p>
     </section>
   );
 }

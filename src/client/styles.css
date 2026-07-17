@@ -395,7 +395,27 @@ p {
 }
 
 .costTable {
-  min-width: 940px;
+  min-width: 1080px;
+}
+
+.costModelColumn {
+  width: 20%;
+}
+
+.costActivityColumn {
+  width: 14%;
+}
+
+.costTokensColumn {
+  width: 18%;
+}
+
+.costRatesColumn {
+  width: 39%;
+}
+
+.costAmountColumn {
+  width: 9%;
 }
 
 .costTable td {
@@ -450,12 +470,12 @@ p {
 }
 
 .costRateCell {
-  min-width: 360px;
+  min-width: 420px;
 }
 
 .pricingInputs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(70px, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(70px, 1fr)) minmax(64px, auto);
   gap: 6px;
   align-items: start;
 }
@@ -472,8 +492,11 @@ p {
 }
 
 .pricingInputs button {
+  min-width: 64px;
   padding: 7px 10px;
   font-size: 12px;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .pricingInputs small {

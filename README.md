@@ -16,9 +16,9 @@ For each detected source, the dashboard reports total, input, cached input, outp
 
 The dashboard includes a cost analysis panel at the bottom of the page. Enter a start and end date, or use the calendar buttons to pick them, and the dashboard aggregates model usage across that date range. It estimates cost from input, cached input, and output token rates, and shows the total per model.
 
-For recognizable OpenAI and Anthropic model names, the API server fills rates from a built-in session catalog based on official provider pricing pages. Unknown models can be filled in directly in the dashboard with input, cached input, and output prices in USD per 1M tokens. Manual rates are remembered in memory for the running API server session and are cleared when the server restarts.
+The API server refreshes standard per-token rates from the official [OpenAI pricing](https://developers.openai.com/api/docs/pricing), [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing), and [GitHub Copilot models and pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) tables. Results are cached for six hours, and a verified built-in snapshot covers the current models when those sites are unavailable. Unknown models can be filled in directly in the dashboard with input, cached input, and output prices in USD per 1M tokens. Manual rates are remembered in memory for the running API server session and are cleared when the server restarts.
 
-Cost values are local estimates. Subscription plans, GitHub Copilot AI Credits, regional routing, batch discounts, cache-write premiums, and provider-side billing adjustments can differ from the displayed API-style token estimate.
+Cost values are local estimates. Subscription allowances, long-context requests, regional routing, batch discounts, cache writes, and provider-side billing adjustments can differ from the displayed standard per-token estimate. GitHub does not disclose the underlying model used by Copilot code review, so `codex-auto-review` cannot be assigned an official token rate.
 
 ## Run
 

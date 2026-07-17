@@ -86,7 +86,7 @@ app.get("/api/pricing", async (req, res, next) => {
     const models = Array.isArray(modelQuery)
       ? modelQuery.flatMap((model) => String(model).split(","))
       : String(modelQuery ?? "").split(",");
-    res.json(getPricingForModels(models));
+    res.json(await getPricingForModels(models));
   } catch (error) {
     next(error);
   }
